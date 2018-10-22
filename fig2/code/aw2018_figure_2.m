@@ -1,6 +1,7 @@
 function aw2018_figure_2(pn)
 % function aw2018_figure_2(pn)
-%   pn = data path. if empty, assumes data are in a folder 'data' with 'code' (one level up)
+%   pn = data path. if empty, assumes data are in a folder 'data' such that:
+%   current directory is 'code,' and 'data' and 'code' are in 'fig' folder
 %% Load physiology data
 % Read AW snr data .xlsx
 if ~exist('pn','var') || isempty(pn)
