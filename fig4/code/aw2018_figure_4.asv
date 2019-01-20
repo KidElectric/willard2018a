@@ -355,7 +355,7 @@ physCoeff(:,1)=-physCoeff(:,1);
 
 disp('Finished loading')
 
-%% Plot 4C-F (Binned): Plot raw behavior asyn, ctl g30
+%% Plot 4C (Binned): Plot raw behavior asyn, ctl g30
 
 groups={'Ctrl','A85','A60','A30','G30'}; 
 xlabs={'Ctl','85','60','30','G30'};
@@ -453,7 +453,7 @@ fnSave='asyn_behave_by_mouse_v2_raw';
 xlswrite([pn_local 'output' filesep fnSave '.xlsx'],out)
 
 
-%% Figure 4G
+%% Figure 4D
 x=0:100;
 figure
 r=2;c=1;
@@ -466,6 +466,7 @@ ylab={'V','R','TP','WH'};
 reOrder=[1:4]; 
 useInts=0;
 d0={};
+flipSign=1; %of all
 usePCs=1:c;
 out=behavCoeff(:,usePCs);
 ind2 = asyn | allgrad | ba | ctl;
@@ -480,6 +481,9 @@ useBins=[1 2 3 4 5];
 lab=lab(useBins);
 for usePC=1:c     
     subaxis(r,c,subinds(1,usePC),'SV',0.1,'PL',0.05,'MR',0.1)
+%     if flipSign==1
+%         out(:,usePC)=-out(:,usePC);
+%     end  
     barh((out(reOrder,usePC)),'k')
     set(gca,'ytick',1:4,...
         'yticklabel',ylab(reOrder),'ydir','reverse')
@@ -504,7 +508,7 @@ end
 bi_Plot_Corrections
 set(gcf,'pos',[    680   522   116   295])
 
-%% Figure 4H
+%% Figure 4E
 %With Gradual 30??
 x=25:100;
 figure
@@ -538,11 +542,47 @@ g30=ismember(type,'G30');
 tt=nanmean(th(g30));
 gm=nanmean(behav(g30,1));
 t=stdErr(behav(g30,1),1);
-% scatter(tt,gm,'^','filled','MarkerFaceColor',[151 36 123]./255)
-% plot([tt tt],[t -t]+gm,'Color',[151 36 123]./255)
+scatter(tt,gm,'^','filled','MarkerFaceColor',[151 36 123]./255)
+plot([tt tt],[t -t]+gm,'Color',[151 36 123]./255)
 ylim([-3 3])
 
 bi_Plot_Corrections
 % ylim([-0.5 2])
 xlim([0 105])
 set(gcf,'pos',[680   650   337   328])
+
+%% Figure 4?: Behavior vs. TH vs. Physiology
+% Contour plot (z is behavior)
+use={'Ctrl','A85','A60','A30',};
+
+ind=ismember(type,use);
+physn=-phys(ind,1);
+bhvn=behav(ind,1);
+thn=th(ind);
+[xData, yData, zData] = prepareSurfaceData( thn, physn, bhvn );
+
+% Set up fittype and options.
+ft = fittype( 'poly22' );
+
+% Fit model to data.
+[fitresult, gof] = fit( [xData, yData], zData, ft, 'Normalize', 'on' );
+
+% Create a figure for the plots.
+figure( 'Name', 'untitled fit 1' );
+h = plot( fitresult, [xData, yData], zData, 'Style', 'Contour' );
+set(h(2),'MarkerFaceColor',[0 0 0],'MarkerSize',2)
+h=colorbar;
+h.Label.String='Behavior PC1';
+xlabel('TH Remaining')
+ylabel('Phys PC1')
+grid off
+set(gca,'xdir','reverse')
+hold on
+title(sprintf('Adj-R^2 = %1.3f',gof.adjrsquare))
+[xData, yData] = prepareCurveData( thn, physn );
+ft = fittype( 'poly3' );
+[fitresult, gof] = fit( xData, yData, ft );
+hold on
+plot(0:100,fitresult(0:100),'w')
+set(gca,'xtick',0:25:100)
+bi_Plot_Corrections

@@ -1,5 +1,5 @@
-function aw2018_figure_1(pn_local,pn_common,reProc)
-% function aw2018_figure_1(pn)
+function  aw2018_figure_6(pn_local,pn_common,reProc)
+% function aw2018_figure_6(pn_local,pn_common,reProc)
 %
 %   pn_local = data path for figure. if empty, assumes data are in a folder 'data' such that:
 %   current directory is 'code,' and 'data' and 'code' are in 'fig' folder
@@ -7,9 +7,8 @@ function aw2018_figure_1(pn_local,pn_common,reProc)
 %   pn_local = common data folder.  if empty, assumes data are in a folder 'common_data' such that:
 %   current directory is 'code,' and 'common_data' is 2 levels above 'code'
 %
-%   reProc = rerun processing from common_data. code needs a few manual changes
-%   in model fitting section to reproduce all models (described below).
-%   default = 0 (may take over an hour)
+%   reProc = rerun processing from common_data. default is 0.
+%
 % Load physiology data
 % Read AW snr data .xlsx
 if ~exist('pn_local','var') || isempty(pn_local)
@@ -19,11 +18,10 @@ if ~exist('pn_common','var') || isempty(pn_common)
     pn_common=['.' filesep '..' filesep '..' filesep 'common_data' filesep];
 end
 if ~exist('reProc','var') || isempty(pn_common)
-    reProc=0; 
+    reProc=0;
 end
-%
 if reProc==1
-    %% Read AW snr data .xlsx
+    %%
     disp('Loading data...')
     fn='SNrInVivoData_wRest_FINAL_v8_NewSynchronyIndex.xlsx';
     fn2='SynchronyData_12-04-18_useable.xlsx';
@@ -70,9 +68,15 @@ if reProc==1
         dat=xlsread(pnfn,sheet,rows{i});
         data=[data;dat];
         types=[types; ones(size(dat,1),1)*type(i)];
+        %     mnum=xlsread(pnfn,sheet,'B3:B1000');
         [~,mnum]=xlsread(pnfn,sheet,ids{i});
+        %     if ismember(shees{i},{'UniDepl','1injIntactAsym','2injIntactAsym','5injIntactAsym'...
+        %        '1injDeplAsym','2injDeplAsym','5injDeplAsym','UniCtl'})
+        %         mnum=[
+        %     else
         um=unique(mnum);
         mouseID=[mouseID; mnum];
+        %     end
         if length(mnum) ~= size(dat,1)
             fprintf('Warning: Mismatch in %s.\n',sheet)
         end
@@ -162,14 +166,10 @@ if reProc==1
     th_values=data2;
     display('Finished')
     
-    %% Categorical multinomial for 2 groups: control vs graduals, endstage
+    %% Categorical multinomial for 2 groups: control different types of depleted
     abrev={'G85','G60','G30','G05','BA','A30','A60','A85',...
         'UDep','AsymDep','AsymCtrl','UCtrl','Ctrl'};
-    % abrev2={'Int','%SB','FR','CV','SYN'};
-    useResponse=[1 2]; %For example, discriminate between Gradual 5% and bilateral accute
-    
     typeTemp=zeros(size(types));
-    origResp=useResponse;
     
     %If not using TH by hems, average across hemispheres first:
     th_mouse_val=th_values;
@@ -182,25 +182,40 @@ if reProc==1
         nn(ind)=sum(ind);
     end
     
-    type_include=ismember(types,[1:10,13]);% Asym and uni IPSI included
+    % type_include=ismember(types,[4,5,9,10]);% Asym and uni IPSI included
+    % type_include=ismember(types,[4,5,13]);% Asym and uni IPSI included
+    type_include=ismember(types,[4,5,9,10,13]);% Asym and uni IPSI included
+    %Predict quantile behavior
     
-    %Uncomment this code to discriminate gradual 5% from acute 5%: mnrfit_500_perm_jackknife_wta_grad5_vs_ba
-    % typeTemp(types==4)=1; %Gradual 5% 
-    % typeTemp(types==5)=2; %Bilateral Acute
-    %Uncomment this code to discriminate gradual 5% + acute 5% from ctl: mnrfit_500_perm_jackknife_wta_depgt20_vs_ctrl
-    typeTemp(types==13)=2; %Ctrl
-    typeTemp(ismember(types,[4,5]))=1; %Gradual 5% OR bilateral acute
+    % Figure 6N:
+    % typeTemp(types==4)=1;
+    % typeTemp(types==5)=2;
+    % typeTemp(types==9)=3;
+    % typeTemp(types==10)=4;
     
-    %Note: change save filename below to avoid over-writing
+    % Figure 6O
+    % typeTemp(ismember(types,[4,5]))=1;
+    % typeTemp(types==13)=2;
     
-    typeTemp(~type_include)=0; %Exclude unilaterals for now
+    % Figure 6P:
+    typeTemp(ismember(types,[4,5,9,10]))=1;
+    typeTemp(types==13)=2;
     
+    typeTemp(~type_include)=0;
+    
+    ut=unique(typeTemp);
+    useResponse=ut(ut~=0);
+    
+    
+    % typeTemp(nn < 10)=0; %Exclude low-neuron mice
     um=unique(mouseID);
     for i=1:length(um)
         tt(i)=length(unique(typeTemp(ismember(mouseID,um{i}))));
     end
     
-    usePredictors=[1, 4, 6, 15]; %Synchrony index = ; Percent synchronous pairs = 15
+    % origRespLabels=abrev(origResp);
+    
+    usePredictors=[1, 4, 6, 15]; %Synchrony index = 8; Percent synchronous pairs = 15
     useCol=usePredictors;
     useData=data(:,useCol); %Put Ctrl in right-most column to be "reference category"
     useInts=1; %Use interactions? 1 = yes, 0 = no
@@ -223,7 +238,6 @@ if reProc==1
     originalTypes=types;
     useTypes=typeTemp;
     typeInd=ismember(useTypes,useResponse);
-    
     useMID=mouseID;
     
     % Only keep neurons of correct type and with all required data fields:
@@ -249,8 +263,29 @@ if reProc==1
         th_mouse(i)=mean(th_values(ind));
     end
     
-    isSkew=[1 0 1 1];
-    zScore=[1 1 1 1];
+    if useTH==1
+        isSkew=[1 0 1 1 1 0];
+        zScore=[1 1 1 1 1 1];
+        isCategorical=[0 0 0 0 0];
+    elseif useBehavior==1
+        isSkew=[1 0 1 1 1 0 1 1];
+        zScore=[1 1 1 1 1 1 1 1];
+        isCategorical=[0 0 0 0 0 0 0 0];
+    else
+        if length(usePredictors)==4
+            isSkew=[1 0 1 1];
+            zScore=[1 1 1 1];
+        elseif length(usePredictors)==5
+            isSkew=[1 0 1 1 1];
+            zScore=[1 1 1 1 1];
+            %         isSkew=[1 1 0 1 1];
+            %         zScore=[1 1 1 1 1];
+        elseif length(usePredictors)==6
+            isSkew=[1 1 0 1 1 1];
+            zScore=[1 1 1 1 1 1];
+        end
+        %     isCategorical=[0 0 0 0 ];
+    end
     
     for i=1:size(useData,2)
         if isSkew(i)
@@ -281,13 +316,12 @@ if reProc==1
     type=useResponse;
     nstim=length(type);
     pKeep=[]; pKeep_null=[]; bKeepNull=[];
-    fitType='mnrfit';
+    fitType='mrfit';
     options.alpha=1;
-    % options.parallel=1;
     n=length(uInputs);
     pk=[];
     type_names=abrev(useResponse);
-    targetN=50; %round(median(neuronsPerMouse));
+    targetN=50;
     runNull=1;
     local_pred=zeros(length(uInputs),perms);
     local_correct=local_pred; local_pred_null=local_pred;
@@ -434,122 +468,89 @@ if reProc==1
     if runNull==1 && perms > 100
         beta_p_null=pkn;
         beta_null=bkn;
-        save([pn_local , sprintf('mnrfit_%d_perm_jackknife_wta_depgt20_vs_ctrl_rerun.mat',perms)],...
+        save([pn_local , sprintf('mnrfit_%d_perm_dep_ES_Vs_ctrl_pred_each.mat',perms)],...
             'pc','pc_null','conf_mat_norm_keep','beta','beta_p','beta_p_null','beta_null','conf_mat_norm_total',...
-            'responses','useResponse','origResp','origPerMouse','local_pred','local_pred_null','nstim',...
+            'responses','useResponse','origPerMouse','local_pred','local_pred_null','nstim',...
             'predictors','sheets','cols','pnfn','fitType','conf_null_mat_norm_total',...
             'predicted','actual','ints','useInts','predicted_null','params')
-        disp('Saved')
+        disp(sprintf('mnrfit_%d_perm_dep_ES_Vs_ctrl_pred_each.mat -Saved!',perms))
     end
+    
+    figure
+    imagesc(conf_mat_norm_total)
+    
 end
-%% Figure 1J & 1K -- compare classifications
-%'mnrfit_500_perm_jackknife_wta_grad5_vs_ba.mat'
-fns={'mnrfit_500_perm_jackknife_wta_grad5_vs_ba.mat',...
-     'mnrfit_500_perm_jackknife_wta_depgt20_vs_ctrl.mat'};
-labs={'G5% vs A5%','5% vs Ctrl'};
-for ii=1:length(fns)
-    load([pn_local fns{ii}],'pc','pc_null','conf_mat_norm_keep','beta','beta_p',...
-        'beta_p_null','beta_null','conf_mat_norm_total',...
-        'responses','useResponse','origResp','origRespLabels',...
-        'combine','origPerMouse','predictors','sheets','cols',...
-        'fitType','conf_null_mat_norm_total','predicted','actual',...
-        'ints','useInts','predicted_null','local_pred','local_pred_null');
-    order = [ 1 2];
+%% Figure 6 Unilateral model comprison plots K,L,M
 
-    % Single box plot with all correct mice  
-    figure    
-    hold on
-    exOut=[]; isPaired=1; anovaFirst=0; mc=0; useWilcox=0; negError=1; plotMedians=0;
-    [h,pAll,mseO]=barMeanSig2({pc,pc_null},{'Actual','Chance'},{[1 2]},{'k','b'},...
-        exOut,isPaired,anovaFirst,mc,useWilcox,negError,plotMedians);
+fns={'mnrfit_500_perm_dep_4way_ints_pred_each.mat',...
+    'mnrfit_500_perm_dep_ipsi_Vs_ctrl_pred_each.mat',...
+    'mnrfit_500_perm_dep_ES_Vs_ctrl_pred_each.mat'};
+clear dd n
+cc=[0.25 0.5 0.5].*100;
+for ii=1:length(fns)
+    load([pn_local fns{ii}]);
+    % Plot each mouse in each class vs chance
+    ct=unique(actual);
+    ci_null=ci95mean(pc_null,2,0);
+    alpha=0.05;
+    n(ii)=length(actual);
+    [h,p(ii)]=ttest(pc ,cc(ii),'tail','right');
     chance(ii,:)=stdErrMean(pc_null,2,1);
-    perf(ii,:)=stdErrMean(pc,2,1);
-   
-    h=plotSpread(pc',[],[],labs(ii));
-    set(h{1},'Marker','s','MarkerEdgeColor','k','MarkerFaceColor',[0.7 0.7 0.7])
-    set(gca,'ytick',0:25:100)
-    xlim([0.5 2.5])
-    set(gcf,'pos',[   680   482   297   496])
-    ylabel('Accuracy (%)')
-    bi_Plot_Corrections
+    perf(ii,:)=stdErrMean(pc,2,0);
+    dd{ii}=pc;
+    cor(ii)=sum(pc>cc(ii));
+    tot(ii)=length(actual);
 end
-%% For text: Evaluate the fraction of mice in each depletion model where mean boot-strapped performance exceeded mean null performance
-local_act=bsxfun(@times,ones(size(local_pred)),actual');
-overall=sum(local_pred==local_act,2)./size(local_pred,2) * 100; % percent of iterations with correct predictions
-overall_null=sum(local_pred_null==local_act,2)./size(local_pred_null,2) * 100;
-useResponse=[1 2];
+% Single box plot with all correct mice
+figure
+hold on
+bar(1:3,perf(:,1),'b')
+h=plotSpread(dd,[],[],{'4-way','Ipsi vs Ctl','ES vs Ctl'});
+for i=1:length(fns)
+    plot([i i],perf(i,2:3),'k')
+end
+
+set(h{1},'Marker','s','MarkerEdgeColor','k','MarkerFaceColor',[0.7 0.7 0.7])
+set(gca,'ytick',0:25:100)
+set(gcf,'pos',[ 557   158   431   364])
+ylabel('Accuracy (%)')
+bi_Plot_Corrections()
+%% Figure 6 ES depletion model performance comparison
+
+load([pn_local 'mnrfit_500_perm_dep_ES_Vs_ctrl_pred_each.mat']);
+act_local=bsxfun(@times,ones(size(local_pred)),actual');
+overall=sum(local_pred==act_local,2)./size(local_pred,2) * 100;
+overall_null=sum(local_pred_null==act_local,2)./size(local_pred_null,2) * 100;
+
+uni=ismember(origPerMouse,[9 10])';
 grad=ismember(origPerMouse,[1 2 3 4])';
-ba=ismember(origPerMouse,5)';
 ctrl=ismember(origPerMouse,13)';
-labs={'G5%', 'BA', 'Ctrl'};
-inds={grad ba ctrl};
+ba=ismember(origPerMouse,5)';
+labs={'Ctrl','Ipsi','Grad','BA'};
+
+inds={ctrl uni grad ba};
 cor=actual' == predicted';
-clear obs exp tot dd mm prop_cor prop_chance
+clear obs exp tot dd mm prop_cor prop_chance pt
 figure
 hold on
 for i=1:length(inds)
-    ind=inds{i};  
+    ind=inds{i};
     tot(i)=sum(ind);
     dd{i}=overall(inds{i}); %Mean performance over iterations approach
     mm(i)=mean(dd{i});
-    exp(i)= sum((overall_null(inds{i}) >  1/length(useResponse)*100)); %Number of mice where boot-strapped performance exceeded chance by chance
+    exp(i)= sum((overall_null(inds{i}) >  1/length(useResponse)*100));
     prop_cor(i)=sum(dd{i}> 1/length(useResponse)*100); %Number of mice where boot-strapped performance exceeded chance
-    text(i,90,sprintf('%d/%d',prop_cor(i),tot(i)),'horizontalalign','center')  % %of iterations that the correct outcome was chosen   
+    h=text(i,90,sprintf('%d/%d',prop_cor(i),tot(i)),'horizontalalign','center');  % %of iterations that the correct outcome was chosen
+    if i==4
+        set(h,'Color','w')
+    end
 end
 bar(1:length(inds),mm,'k')
+
 h=plotSpread(dd,[],[],labs);
 set(h{1},'Marker','s','MarkerEdgeColor','k','MarkerFaceColor',[0.7 0.7 0.7])
-plot([0 length(inds)+1],1/length(useResponse)*100.*[1 1],'--r')
+plot([0 length(inds)+1],(1/length(useResponse))*100.*[1 1],'--r')
 set(gca,'ytick',0:25:100,'ylim',[0 100])
 set(gca,'xtick',1:length(inds),'xticklabel',labs)
 ylabel('% Correct')
-%% Figure 1L - Plot betas
-load([pn_local fns{2}],'beta','beta_p');
-preds={'Int','B','FR','IR','SYN'};
-reOrder=[3 4 2 5]-1;
-if useInts==1
-    ylab=preds(2:end);
-    for i=1:length(ints)
-        newLab{i}=sprintf('%s x %s',ylab{ints(i,1)},ylab{ints(i,2)});
-    end
-    allLab=[ {'int'} ylab(reOrder) newLab];
-%     allLab=[ {'int'} ylab newLab];
-else
-    allLab=predictors;
-end
-reOrder=[1 3 4 2 5];
-% reOrder=1:5;
-beta_temp=beta;
-% beta=beta*2; %because logistic, *2
-beta_temp(1:5,:,:)=-beta_temp(reOrder,:,:); %if relative to ES flip sign
-beta_temp=logmodulus(beta_temp);
-beta_p(1:5,:,:)=beta_p(reOrder,:,:);
-for ii=1:size(beta_temp,2)
-    pk=median(beta_p(:,ii,:),3); %Very skewed- use median?
-    b=ci95mean(squeeze(beta_temp(:,ii,:)),2,0);
-    figure
-    hold on
-    for i=1:size(b,1)
-        plot(b(i,1),i,'ok','UserData','Ex')
-        if pk(i) < 0.001
-            h=text(b(i,1),i - (.2),'***');
-        elseif pk(i) < 0.01
-            h=text(b(i,1),i - (.2),'**');
-        elseif pk(i) < 0.05
-            h=text(b(i,1),i - (.2),'*');
-        else
-            h=text(b(i,1),i - (.2),'');
-        end
-        set(h,'HorizontalAlignment','Center')
-        plot([0 b(i,1)],[i i],'k')
-    end
-    set(gca,'ydir','reverse','ytick',1:size(b,1),...
-        'yticklabel',allLab)
-    ylim([0,size(b,1) + 0.5])
-    plot([0 0],[1, size(beta_temp,1)+0.5],'--k')
-    xlabel('logmod(beta)')
-    set(gcf,'pos',[ 680   616   267   362])
-    bi_Plot_Corrections
-
-end
-   set(gcf,'pos',[680   616   238   362])
+bi_Plot_Corrections()
