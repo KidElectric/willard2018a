@@ -1,15 +1,13 @@
 function aw2018_figure_1(pn_local,pn_common,reProc)
 % function aw2018_figure_1(pn)
-%
 %   pn_local = data path for figure. if empty, assumes data are in a folder 'data' such that:
 %   current directory is 'code,' and 'data' and 'code' are in 'fig' folder
 %
 %   pn_local = common data folder.  if empty, assumes data are in a folder 'common_data' such that:
 %   current directory is 'code,' and 'common_data' is 2 levels above 'code'
 %
-%   reProc = rerun processing from common_data. code needs a few manual changes
+%   reProc = rerun processing from common_data. needs manual changes
 %   in model fitting section to reproduce all models (described below).
-%   default = 0 (may take over an hour)
 % Load physiology data
 % Read AW snr data .xlsx
 if ~exist('pn_local','var') || isempty(pn_local)
@@ -18,7 +16,7 @@ end
 if ~exist('pn_common','var') || isempty(pn_common)
     pn_common=['.' filesep '..' filesep '..' filesep 'common_data' filesep];
 end
-if ~exist('reProc','var') || isempty(pn_common)
+if ~exist('pn_common','var') || isempty(pn_common)
     reProc=0; 
 end
 %
@@ -183,15 +181,13 @@ if reProc==1
     end
     
     type_include=ismember(types,[1:10,13]);% Asym and uni IPSI included
-    
-    %Uncomment this code to discriminate gradual 5% from acute 5%: mnrfit_500_perm_jackknife_wta_grad5_vs_ba
-    % typeTemp(types==4)=1; %Gradual 5% 
+    % typeTemp(types==4)=1; %Gradual 5%
     % typeTemp(types==5)=2; %Bilateral Acute
-    %Uncomment this code to discriminate gradual 5% + acute 5% from ctl: mnrfit_500_perm_jackknife_wta_depgt20_vs_ctrl
+    
+    
     typeTemp(types==13)=2; %Ctrl
     typeTemp(ismember(types,[4,5]))=1; %Gradual 5% OR bilateral acute
     
-    %Note: change save filename below to avoid over-writing
     
     typeTemp(~type_include)=0; %Exclude unilaterals for now
     
@@ -275,7 +271,7 @@ if reProc==1
         useCol=1:size(useData,2);
     end
     
-    perms=500; %Note: set to 500 for final analyses but use 10 or so to test
+    perms=25; %Note: set to 500 for final analyses but use 10 or so to test
     clear pc conf_mat_counts conf_mat_norm bKeep conf_mat_norm_keep ...
         pk bk correct actual predicted predicted_null bkn pkn pc_null
     type=useResponse;
@@ -434,7 +430,7 @@ if reProc==1
     if runNull==1 && perms > 100
         beta_p_null=pkn;
         beta_null=bkn;
-        save([pn_local , sprintf('mnrfit_%d_perm_jackknife_wta_depgt20_vs_ctrl_rerun.mat',perms)],...
+        save([pn_local , sprintf('mnrfit_%d_perm_jackknife_wta_depgt20_vs_ctrl.mat',perms)],...
             'pc','pc_null','conf_mat_norm_keep','beta','beta_p','beta_p_null','beta_null','conf_mat_norm_total',...
             'responses','useResponse','origResp','origPerMouse','local_pred','local_pred_null','nstim',...
             'predictors','sheets','cols','pnfn','fitType','conf_null_mat_norm_total',...
@@ -500,6 +496,7 @@ bar(1:length(inds),mm,'k')
 h=plotSpread(dd,[],[],labs);
 set(h{1},'Marker','s','MarkerEdgeColor','k','MarkerFaceColor',[0.7 0.7 0.7])
 plot([0 length(inds)+1],1/length(useResponse)*100.*[1 1],'--r')
+title(sprintf('Chi^2 = %2.1f, p = %1.4f',c,p))
 set(gca,'ytick',0:25:100,'ylim',[0 100])
 set(gca,'xtick',1:length(inds),'xticklabel',labs)
 ylabel('% Correct')
